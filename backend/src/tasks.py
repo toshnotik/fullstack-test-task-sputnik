@@ -4,7 +4,8 @@ from pathlib import Path
 from celery import Celery
 
 from src.core import config, database
-from src.models import Alert, StoredFile
+from src.repositories import alerts as alerts_repository
+from src.repositories import files as files_repository
 
 _worker_loop: asyncio.AbstractEventLoop | None = None
 
@@ -22,7 +23,7 @@ celery_app = Celery("file_tasks", broker=config.REDIS_URL, backend=config.REDIS_
 
 async def _scan_file_for_threats(file_id: str) -> None:
     async with database.async_session_maker() as session:
-        file_item = await session.get(StoredFile, file_id)
+        file_item = await files_repository.get_file(session, file_id)
         if not file_item:
             return
 
@@ -49,7 +50,7 @@ async def _scan_file_for_threats(file_id: str) -> None:
 
 async def _extract_file_metadata(file_id: str) -> None:
     async with database.async_session_maker() as session:
-        file_item = await session.get(StoredFile, file_id)
+        file_item = await files_repository.get_file(session, file_id)
         if not file_item:
             return
 
@@ -85,22 +86,22 @@ async def _extract_file_metadata(file_id: str) -> None:
 
 async def _send_file_alert(file_id: str) -> None:
     async with database.async_session_maker() as session:
-        file_item = await session.get(StoredFile, file_id)
+        file_item = await files_repository.get_file(session, file_id)
         if not file_item:
             return
 
         if file_item.processing_status == "failed":
-            alert = Alert(file_id=file_id, level="critical", message="File processing failed")
+            alert = alerts_repository.create_alert(file_id=file_id, level="critical", message="File processing failed")
         elif file_item.requires_attention:
-            alert = Alert(
+            alert = alerts_repository.create_alert(
                 file_id=file_id,
                 level="warning",
                 message=f"File requires attention: {file_item.scan_details}",
             )
         else:
-            alert = Alert(file_id=file_id, level="info", message="File processed successfully")
+            alert = alerts_repository.create_alert(file_id=file_id, level="info", message="File processed successfully")
 
-        session.add(alert)
+        alerts_repository.add_alert(session, alert)
         await session.commit()
 
 

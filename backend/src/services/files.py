@@ -3,22 +3,20 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import select
-
 from src.core import config, database
 from src.exceptions import EmptyFileError, StoredFileContentNotFound, StoredFileNotFound
 from src.models import StoredFile
+from src.repositories import files as files_repository
 
 
 async def list_files() -> list[StoredFile]:
     async with database.async_session_maker() as session:
-        result = await session.execute(select(StoredFile).order_by(StoredFile.created_at.desc()))
-        return list(result.scalars().all())
+        return await files_repository.list_files(session)
 
 
 async def get_file(file_id: str) -> StoredFile:
     async with database.async_session_maker() as session:
-        file_item = await session.get(StoredFile, file_id)
+        file_item = await files_repository.get_file(session, file_id)
         if not file_item:
             raise StoredFileNotFound
         return file_item
@@ -45,32 +43,32 @@ async def create_file(title: str, upload_file: Any) -> StoredFile:
         processing_status="uploaded",
     )
     async with database.async_session_maker() as session:
-        session.add(file_item)
+        files_repository.add_file(session, file_item)
         await session.commit()
-        await session.refresh(file_item)
+        await files_repository.refresh_file(session, file_item)
     return file_item
 
 
 async def update_file(file_id: str, title: str) -> StoredFile:
     async with database.async_session_maker() as session:
-        file_item = await session.get(StoredFile, file_id)
+        file_item = await files_repository.get_file(session, file_id)
         if not file_item:
             raise StoredFileNotFound
-        file_item.title = title
+        files_repository.update_file_title(file_item, title)
         await session.commit()
-        await session.refresh(file_item)
+        await files_repository.refresh_file(session, file_item)
         return file_item
 
 
 async def delete_file(file_id: str) -> None:
     async with database.async_session_maker() as session:
-        file_item = await session.get(StoredFile, file_id)
+        file_item = await files_repository.get_file(session, file_id)
         if not file_item:
             raise StoredFileNotFound
         stored_path = config.STORAGE_DIR / file_item.stored_name
         if stored_path.exists():
             stored_path.unlink()
-        await session.delete(file_item)
+        await files_repository.delete_file(session, file_item)
         await session.commit()
 
 
