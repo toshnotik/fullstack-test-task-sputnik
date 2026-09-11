@@ -9,6 +9,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from src.api import files as files_api
 from src.models import Alert, StoredFile
+from src.repositories import files as files_repository
+from src.services import files as files_service
+from src.storage import local as local_storage
 
 
 class DelaySpy:
@@ -17,6 +20,26 @@ class DelaySpy:
 
     def delay(self, file_id: str) -> None:
         self.calls.append(file_id)
+
+
+class ChunkedUpload:
+    def __init__(
+        self,
+        chunks: list[bytes],
+        *,
+        filename: str = "chunked.txt",
+        content_type: str = "text/plain",
+    ) -> None:
+        self.chunks = chunks
+        self.filename = filename
+        self.content_type = content_type
+
+    async def read(self, size: int | None = None) -> bytes:
+        if size is None:
+            raise AssertionError("upload should be read with an explicit chunk size")
+        if not self.chunks:
+            return b""
+        return self.chunks.pop(0)
 
 
 @pytest.fixture
@@ -74,6 +97,105 @@ async def test_upload_file_persists_metadata_and_stored_file(
     assert scan_spy.calls == [body["id"]]
     stored_path = storage_dir / f"{body['id']}.txt"
     assert stored_path.read_bytes() == b"hello\nworld"
+
+
+@pytest.mark.asyncio
+async def test_upload_large_file_persists_streamed_content_and_size(
+    client: AsyncClient,
+    scan_spy: DelaySpy,
+    test_context: tuple[async_sessionmaker[Any], Path],
+) -> None:
+    _, storage_dir = test_context
+    content = (
+        (b"a" * local_storage.UPLOAD_CHUNK_SIZE)
+        + (b"b" * 123)
+        + (b"c" * local_storage.UPLOAD_CHUNK_SIZE)
+    )
+
+    body = await upload_file(
+        client,
+        filename="large.txt",
+        content=content,
+        content_type="text/plain",
+    )
+
+    assert body["size"] == len(content)
+    assert (storage_dir / f"{body['id']}.txt").read_bytes() == content
+
+
+@pytest.mark.asyncio
+async def test_upload_uses_explicit_chunk_reads(
+    scan_spy: DelaySpy,
+    test_context: tuple[async_sessionmaker[Any], Path],
+) -> None:
+    session_maker, storage_dir = test_context
+    chunks = [b"first", b"second"]
+
+    body = await files_service.create_file(
+        title="Chunked",
+        upload_file=ChunkedUpload(chunks),
+    )
+
+    assert body.size == len(b"firstsecond")
+    assert (storage_dir / body.stored_name).read_bytes() == b"firstsecond"
+
+    async with session_maker() as session:
+        file_item = await session.get(StoredFile, body.id)
+
+    assert file_item is not None
+
+
+@pytest.mark.asyncio
+async def test_upload_cleans_saved_file_when_database_operation_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    test_context: tuple[async_sessionmaker[Any], Path],
+) -> None:
+    session_maker, storage_dir = test_context
+
+    def fail_add_file(*_: Any) -> None:
+        raise RuntimeError("database failed")
+
+    monkeypatch.setattr(files_repository, "add_file", fail_add_file)
+
+    with pytest.raises(RuntimeError, match="database failed"):
+        await files_service.create_file(
+            title="DB fails",
+            upload_file=ChunkedUpload([b"saved before db"], filename="db-fails.txt"),
+        )
+
+    assert list(storage_dir.iterdir()) == []
+    async with session_maker() as session:
+        files = await session.execute(select(StoredFile))
+
+    assert list(files.scalars()) == []
+
+
+@pytest.mark.asyncio
+async def test_upload_removes_partial_file_when_storage_write_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    test_context: tuple[async_sessionmaker[Any], Path],
+) -> None:
+    _, storage_dir = test_context
+    original_write_chunk = local_storage._write_chunk
+    write_calls = 0
+
+    def fail_second_write(target: Any, chunk: bytes) -> None:
+        nonlocal write_calls
+        write_calls += 1
+        if write_calls == 2:
+            raise OSError("disk is full")
+        original_write_chunk(target, chunk)
+
+    monkeypatch.setattr(local_storage, "_write_chunk", fail_second_write)
+
+    with pytest.raises(OSError, match="disk is full"):
+        await local_storage.save_upload_file(
+            "partial.txt",
+            ChunkedUpload([b"first", b"second"]),
+            chunk_size=5,
+        )
+
+    assert not (storage_dir / "partial.txt").exists()
 
 
 @pytest.mark.asyncio

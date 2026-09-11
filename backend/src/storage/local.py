@@ -1,16 +1,46 @@
+import asyncio
+from contextlib import suppress
 from pathlib import Path
+from typing import BinaryIO
 
 from src.core import config
+
+UPLOAD_CHUNK_SIZE = 1024 * 1024
 
 
 def get_stored_path(stored_name: str) -> Path:
     return config.STORAGE_DIR / stored_name
 
 
-def save_file(stored_name: str, content: bytes) -> Path:
+async def save_upload_file(
+    stored_name: str,
+    upload_file,
+    chunk_size: int = UPLOAD_CHUNK_SIZE,
+) -> int:
     stored_path = get_stored_path(stored_name)
-    stored_path.write_bytes(content)
-    return stored_path
+    total_size = 0
+
+    try:
+        target = await asyncio.to_thread(stored_path.open, "wb")
+        try:
+            while True:
+                chunk = await upload_file.read(chunk_size)
+                if not chunk:
+                    break
+                total_size += len(chunk)
+                await asyncio.to_thread(_write_chunk, target, chunk)
+        finally:
+            await asyncio.to_thread(target.close)
+    except Exception:
+        with suppress(Exception):
+            delete_file(stored_name)
+        raise
+
+    return total_size
+
+
+def _write_chunk(target: BinaryIO, chunk: bytes) -> None:
+    target.write(chunk)
 
 
 def file_exists(stored_name: str) -> bool:

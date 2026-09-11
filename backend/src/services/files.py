@@ -1,4 +1,5 @@
 import mimetypes
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -25,14 +26,13 @@ async def get_file(file_id: str) -> StoredFile:
 
 
 async def create_file(title: str, upload_file: Any) -> StoredFile:
-    content = await upload_file.read()
-    if not content:
-        raise EmptyFileError
-
     file_id = str(uuid4())
     suffix = Path(upload_file.filename or "").suffix
     stored_name = f"{file_id}{suffix}"
-    local_storage.save_file(stored_name, content)
+    size = await local_storage.save_upload_file(stored_name, upload_file)
+    if size == 0:
+        cleanup_saved_file(stored_name)
+        raise EmptyFileError
 
     file_item = StoredFile(
         id=file_id,
@@ -40,14 +40,26 @@ async def create_file(title: str, upload_file: Any) -> StoredFile:
         original_name=upload_file.filename or stored_name,
         stored_name=stored_name,
         mime_type=upload_file.content_type or mimetypes.guess_type(stored_name)[0] or "application/octet-stream",
-        size=len(content),
+        size=size,
         processing_status="uploaded",
     )
-    async with database.async_session_maker() as session:
-        files_repository.add_file(session, file_item)
-        await session.commit()
-        await files_repository.refresh_file(session, file_item)
+    committed = False
+    try:
+        async with database.async_session_maker() as session:
+            files_repository.add_file(session, file_item)
+            await session.commit()
+            committed = True
+            await files_repository.refresh_file(session, file_item)
+    except Exception:
+        if not committed:
+            cleanup_saved_file(stored_name)
+        raise
     return file_item
+
+
+def cleanup_saved_file(stored_name: str) -> None:
+    with suppress(Exception):
+        local_storage.delete_file(stored_name)
 
 
 async def update_file(file_id: str, title: str) -> StoredFile:
