@@ -20,7 +20,7 @@ os.environ.setdefault("POSTGRES_DB", "test")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src import app as app_module
-from src import service
+from src.core import config, database
 from src.models import Base
 
 
@@ -49,9 +49,8 @@ async def test_context(
     storage_dir = tmp_path / "storage" / "files"
     storage_dir.mkdir(parents=True)
 
-    monkeypatch.setattr(service, "async_session_maker", session_maker)
-    monkeypatch.setattr(service, "STORAGE_DIR", storage_dir)
-    monkeypatch.setattr(app_module, "STORAGE_DIR", storage_dir)
+    monkeypatch.setattr(database, "async_session_maker", session_maker)
+    monkeypatch.setattr(config, "STORAGE_DIR", storage_dir)
 
     yield session_maker, storage_dir
 
