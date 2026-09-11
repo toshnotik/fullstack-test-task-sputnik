@@ -7,7 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from src import app as app_module
+from src.api import files as files_api
 from src.models import Alert, StoredFile
 
 
@@ -22,7 +22,7 @@ class DelaySpy:
 @pytest.fixture
 def scan_spy(monkeypatch: pytest.MonkeyPatch) -> DelaySpy:
     spy = DelaySpy()
-    monkeypatch.setattr(app_module, "scan_file_for_threats", spy)
+    monkeypatch.setattr(files_api, "scan_file_for_threats", spy)
     return spy
 
 
