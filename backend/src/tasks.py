@@ -6,6 +6,7 @@ from celery import Celery
 from src.core import config, database
 from src.repositories import alerts as alerts_repository
 from src.repositories import files as files_repository
+from src.storage import local as local_storage
 
 _worker_loop: asyncio.AbstractEventLoop | None = None
 
@@ -54,8 +55,7 @@ async def _extract_file_metadata(file_id: str) -> None:
         if not file_item:
             return
 
-        stored_path = config.STORAGE_DIR / file_item.stored_name
-        if not stored_path.exists():
+        if not local_storage.file_exists(file_item.stored_name):
             file_item.processing_status = "failed"
             file_item.scan_status = file_item.scan_status or "failed"
             file_item.scan_details = "stored file not found during metadata extraction"
@@ -70,11 +70,11 @@ async def _extract_file_metadata(file_id: str) -> None:
         }
 
         if file_item.mime_type.startswith("text/"):
-            content = stored_path.read_text(encoding="utf-8", errors="ignore")
+            content = local_storage.read_text(file_item.stored_name)
             metadata["line_count"] = len(content.splitlines())
             metadata["char_count"] = len(content)
         elif file_item.mime_type == "application/pdf":
-            content = stored_path.read_bytes()
+            content = local_storage.read_bytes(file_item.stored_name)
             metadata["approx_page_count"] = max(content.count(b"/Type /Page"), 1)
 
         file_item.metadata_json = metadata

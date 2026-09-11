@@ -3,10 +3,11 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from src.core import config, database
+from src.core import database
 from src.exceptions import EmptyFileError, StoredFileContentNotFound, StoredFileNotFound
 from src.models import StoredFile
 from src.repositories import files as files_repository
+from src.storage import local as local_storage
 
 
 async def list_files() -> list[StoredFile]:
@@ -30,8 +31,7 @@ async def create_file(title: str, upload_file: Any) -> StoredFile:
     file_id = str(uuid4())
     suffix = Path(upload_file.filename or "").suffix
     stored_name = f"{file_id}{suffix}"
-    stored_path = config.STORAGE_DIR / stored_name
-    stored_path.write_bytes(content)
+    local_storage.save_file(stored_name, content)
 
     file_item = StoredFile(
         id=file_id,
@@ -65,16 +65,13 @@ async def delete_file(file_id: str) -> None:
         file_item = await files_repository.get_file(session, file_id)
         if not file_item:
             raise StoredFileNotFound
-        stored_path = config.STORAGE_DIR / file_item.stored_name
-        if stored_path.exists():
-            stored_path.unlink()
+        local_storage.delete_file(file_item.stored_name)
         await files_repository.delete_file(session, file_item)
         await session.commit()
 
 
 async def get_file_path(file_id: str) -> tuple[StoredFile, Path]:
     file_item = await get_file(file_id)
-    stored_path = config.STORAGE_DIR / file_item.stored_name
-    if not stored_path.exists():
+    if not local_storage.file_exists(file_item.stored_name):
         raise StoredFileContentNotFound
-    return file_item, stored_path
+    return file_item, local_storage.get_stored_path(file_item.stored_name)
