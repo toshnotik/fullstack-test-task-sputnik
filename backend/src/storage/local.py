@@ -19,8 +19,10 @@ def file_exists(stored_name: str) -> bool:
 
 def delete_file(stored_name: str) -> None:
     stored_path = get_stored_path(stored_name)
-    if stored_path.exists():
+    try:
         stored_path.unlink()
+    except FileNotFoundError:
+        pass
 
 
 def read_text(stored_name: str) -> str:

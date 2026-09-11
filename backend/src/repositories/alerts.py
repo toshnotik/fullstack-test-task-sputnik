@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models import Alert
@@ -19,3 +19,7 @@ def add_alert(session: AsyncSession, alert: Alert) -> None:
 
 async def refresh_alert(session: AsyncSession, alert: Alert) -> None:
     await session.refresh(alert)
+
+
+async def delete_alerts_for_file(session: AsyncSession, file_id: str) -> None:
+    await session.execute(delete(Alert).where(Alert.file_id == file_id))

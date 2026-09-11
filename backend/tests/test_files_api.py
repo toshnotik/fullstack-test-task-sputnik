@@ -226,7 +226,7 @@ async def test_missing_file_operations_return_404(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_delete_file_referenced_by_alert_returns_500_and_leaves_orphaned_storage_state(
+async def test_delete_file_referenced_by_alert_removes_database_rows_and_stored_file(
     client: AsyncClient,
     scan_spy: DelaySpy,
     test_context: tuple[async_sessionmaker[Any], Path],
@@ -240,13 +240,36 @@ async def test_delete_file_referenced_by_alert_returns_500_and_leaves_orphaned_s
 
     response = await client.delete(f"/files/{uploaded['id']}")
 
-    assert response.status_code == 500
-    assert response.text == "Internal Server Error"
+    assert response.status_code == 204
+    assert response.content == b""
     assert not stored_path.exists()
 
     async with session_maker() as session:
         file_item = await session.get(StoredFile, uploaded["id"])
         alerts = await session.execute(select(Alert).where(Alert.file_id == uploaded["id"]))
 
-    assert file_item is not None
-    assert len(list(alerts.scalars())) == 1
+    assert file_item is None
+    assert list(alerts.scalars()) == []
+
+
+@pytest.mark.asyncio
+async def test_delete_file_succeeds_when_stored_file_is_already_missing(
+    client: AsyncClient,
+    scan_spy: DelaySpy,
+    test_context: tuple[async_sessionmaker[Any], Path],
+) -> None:
+    session_maker, storage_dir = test_context
+    uploaded = await upload_file(client, filename="missing-on-disk.txt", content=b"missing")
+    stored_path = storage_dir / f"{uploaded['id']}.txt"
+    stored_path.unlink()
+
+    response = await client.delete(f"/files/{uploaded['id']}")
+
+    assert response.status_code == 204
+    assert response.content == b""
+    assert not stored_path.exists()
+
+    async with session_maker() as session:
+        file_item = await session.get(StoredFile, uploaded["id"])
+
+    assert file_item is None

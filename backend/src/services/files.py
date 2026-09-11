@@ -6,6 +6,7 @@ from uuid import uuid4
 from src.core import database
 from src.exceptions import EmptyFileError, StoredFileContentNotFound, StoredFileNotFound
 from src.models import StoredFile
+from src.repositories import alerts as alerts_repository
 from src.repositories import files as files_repository
 from src.storage import local as local_storage
 
@@ -65,9 +66,11 @@ async def delete_file(file_id: str) -> None:
         file_item = await files_repository.get_file(session, file_id)
         if not file_item:
             raise StoredFileNotFound
-        local_storage.delete_file(file_item.stored_name)
+        stored_name = file_item.stored_name
+        await alerts_repository.delete_alerts_for_file(session, file_id)
         await files_repository.delete_file(session, file_item)
         await session.commit()
+    local_storage.delete_file(stored_name)
 
 
 async def get_file_path(file_id: str) -> tuple[StoredFile, Path]:
