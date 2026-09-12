@@ -10,6 +10,7 @@ services:
       - "8000:8000"
     depends_on:
       - backend-db
+      - backend-redis
 
   backend-worker:
     build: ./backend
@@ -20,6 +21,7 @@ services:
       - ./backend:/backend
     depends_on:
       - backend-db
+      - backend-redis
 
   backend-db:
     image: postgres:latest
@@ -38,9 +40,13 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BACKEND_URL: "http://localhost:8000"
     container_name: frontend
     ports:
       - "3000:3000"
+    depends_on:
+      - backend
 
 volumes:
   backend-db-volume:
