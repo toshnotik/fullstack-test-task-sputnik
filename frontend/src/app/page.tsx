@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Badge,
@@ -21,8 +22,8 @@ type FileItem = {
   original_name: string;
   mime_type: string;
   size: number;
-  processing_status: string;
-  scan_status: string | null;
+  processing_status: ProcessingStatus;
+  scan_status: ScanStatus | null;
   scan_details: string | null;
   metadata_json: Record<string, unknown> | null;
   requires_attention: boolean;
@@ -33,20 +34,24 @@ type FileItem = {
 type AlertItem = {
   id: number;
   file_id: string;
-  level: string;
+  level: AlertLevel;
   message: string;
   created_at: string;
 };
 
+type ProcessingStatus = "uploaded" | "processing" | "processed" | "failed";
+type ScanStatus = "clean" | "suspicious" | "failed";
+type AlertLevel = "info" | "warning" | "critical";
+type BootstrapVariant = "success" | "secondary" | "warning" | "danger";
 
-function formatDate(value: string) {
+function formatDate(value: string): string {
   return new Intl.DateTimeFormat("ru-RU", {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value));
 }
 
-function formatSize(size: number) {
+function formatSize(size: number): string {
   if (size < 1024) {
     return `${size} B`;
   }
@@ -58,7 +63,7 @@ function formatSize(size: number) {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function getLevelVariant(level: string) {
+function getLevelVariant(level: AlertLevel): BootstrapVariant {
   if (level === "critical") {
     return "danger";
   }
@@ -70,7 +75,7 @@ function getLevelVariant(level: string) {
   return "success";
 }
 
-function getProcessingVariant(status: string) {
+function getProcessingVariant(status: ProcessingStatus): BootstrapVariant {
   if (status === "failed") {
     return "danger";
   }
@@ -96,7 +101,7 @@ export default function Page() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  async function loadData() {
+  async function loadData(): Promise<void> {
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -128,7 +133,7 @@ export default function Page() {
     void loadData();
   }, []);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
     if (!title.trim() || !selectedFile) {
@@ -162,6 +167,10 @@ export default function Page() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>): void {
+    setSelectedFile(event.target.files?.[0] ?? null);
   }
 
   return (
@@ -344,12 +353,7 @@ export default function Page() {
             </Form.Group>
             <Form.Group>
               <Form.Label>Файл</Form.Label>
-              <Form.Control
-                type="file"
-                onChange={(event) =>
-                  setSelectedFile((event.target as HTMLInputElement).files?.[0] ?? null)
-                }
-              />
+              <Form.Control type="file" onChange={handleFileChange} />
             </Form.Group>
           </Modal.Body>
           <Modal.Footer>
