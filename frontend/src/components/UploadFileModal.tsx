@@ -25,9 +25,14 @@ export function UploadFileModal({
   }
 
   return (
-    <Modal show={show} onHide={onHide} centered>
+    <Modal
+      show={show}
+      onHide={isSubmitting ? undefined : onHide}
+      centered
+      backdrop={isSubmitting ? "static" : true}
+    >
       <Form onSubmit={onSubmit}>
-        <Modal.Header closeButton>
+        <Modal.Header closeButton={!isSubmitting}>
           <Modal.Title>Добавить файл</Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -37,19 +42,20 @@ export function UploadFileModal({
               value={title}
               onChange={(event) => onTitleChange(event.target.value)}
               placeholder="Например, Договор с подрядчиком"
+              disabled={isSubmitting}
             />
           </Form.Group>
           <Form.Group>
             <Form.Label>Файл</Form.Label>
-            <Form.Control type="file" onChange={handleFileChange} />
+            <Form.Control type="file" onChange={handleFileChange} disabled={isSubmitting} />
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="outline-secondary" onClick={onHide}>
+          <Button variant="outline-secondary" onClick={onHide} disabled={isSubmitting}>
             Отмена
           </Button>
           <Button type="submit" variant="primary" disabled={isSubmitting}>
-            {isSubmitting ? "Загрузка..." : "Сохранить"}
+            {isSubmitting ? "Добавление..." : "Сохранить"}
           </Button>
         </Modal.Footer>
       </Form>

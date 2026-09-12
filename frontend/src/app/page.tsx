@@ -41,8 +41,32 @@ export default function Page() {
     void loadData();
   }, []);
 
+  function resetUploadForm(): void {
+    setTitle("");
+    setSelectedFile(null);
+  }
+
+  function handleOpenUploadModal(): void {
+    resetUploadForm();
+    setErrorMessage(null);
+    setShowModal(true);
+  }
+
+  function handleCloseUploadModal(): void {
+    if (isSubmitting) {
+      return;
+    }
+
+    setShowModal(false);
+    resetUploadForm();
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+
+    if (isSubmitting) {
+      return;
+    }
 
     if (!title.trim() || !selectedFile) {
       setErrorMessage("Укажите название и выберите файл");
@@ -55,8 +79,7 @@ export default function Page() {
     try {
       await uploadFile(title.trim(), selectedFile);
       setShowModal(false);
-      setTitle("");
-      setSelectedFile(null);
+      resetUploadForm();
       await loadData();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Произошла ошибка");
@@ -79,10 +102,10 @@ export default function Page() {
                   </p>
                 </div>
                 <div className="d-flex gap-2">
-                  <Button variant="outline-secondary" onClick={() => void loadData()}>
-                    Обновить
+                  <Button variant="outline-secondary" onClick={() => void loadData()} disabled={isLoading || isSubmitting}>
+                    {isLoading ? "Обновление..." : "Обновить"}
                   </Button>
-                  <Button variant="primary" onClick={() => setShowModal(true)}>
+                  <Button variant="primary" onClick={handleOpenUploadModal} disabled={isSubmitting}>
                     Добавить файл
                   </Button>
                 </div>
@@ -105,7 +128,7 @@ export default function Page() {
         show={showModal}
         title={title}
         isSubmitting={isSubmitting}
-        onHide={() => setShowModal(false)}
+        onHide={handleCloseUploadModal}
         onSubmit={handleSubmit}
         onTitleChange={setTitle}
         onFileChange={setSelectedFile}
