@@ -16,32 +16,10 @@ import {
   Table,
 } from "react-bootstrap";
 
-type FileItem = {
-  id: string;
-  title: string;
-  original_name: string;
-  mime_type: string;
-  size: number;
-  processing_status: ProcessingStatus;
-  scan_status: ScanStatus | null;
-  scan_details: string | null;
-  metadata_json: Record<string, unknown> | null;
-  requires_attention: boolean;
-  created_at: string;
-  updated_at: string;
-};
+import { getAlerts } from "../api/alerts";
+import { getFileDownloadUrl, getFiles, uploadFile } from "../api/files";
+import type { AlertItem, AlertLevel, FileItem, ProcessingStatus } from "../types/api";
 
-type AlertItem = {
-  id: number;
-  file_id: string;
-  level: AlertLevel;
-  message: string;
-  created_at: string;
-};
-
-type ProcessingStatus = "uploaded" | "processing" | "processed" | "failed";
-type ScanStatus = "clean" | "suspicious" | "failed";
-type AlertLevel = "info" | "warning" | "critical";
 type BootstrapVariant = "success" | "secondary" | "warning" | "danger";
 
 function formatDate(value: string): string {
@@ -106,19 +84,7 @@ export default function Page() {
     setErrorMessage(null);
 
     try {
-      const [filesResponse, alertsResponse] = await Promise.all([
-        fetch(`http://localhost:8000/files`, { cache: "no-store" }),
-        fetch(`http://localhost:8000/alerts`, { cache: "no-store" }),
-      ]);
-
-      if (!filesResponse.ok || !alertsResponse.ok) {
-        throw new Error("Не удалось загрузить данные");
-      }
-
-      const [filesData, alertsData] = await Promise.all([
-        filesResponse.json() as Promise<FileItem[]>,
-        alertsResponse.json() as Promise<AlertItem[]>,
-      ]);
+      const [filesData, alertsData] = await Promise.all([getFiles(), getAlerts()]);
 
       setFiles(filesData);
       setAlerts(alertsData);
@@ -144,20 +110,8 @@ export default function Page() {
     setIsSubmitting(true);
     setErrorMessage(null);
 
-    const formData = new FormData();
-    formData.append("title", title.trim());
-    formData.append("file", selectedFile);
-
     try {
-      const response = await fetch(`http://localhost:8000/files`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Не удалось загрузить файл");
-      }
-
+      await uploadFile(title.trim(), selectedFile);
       setShowModal(false);
       setTitle("");
       setSelectedFile(null);
@@ -267,7 +221,7 @@ export default function Page() {
                             <td className="text-nowrap">
                               <Button
                                 as="a"
-                                href={`http://localhost:8000/files/${file.id}/download`}
+                                href={getFileDownloadUrl(file.id)}
                                 variant="outline-primary"
                                 size="sm"
                               >
