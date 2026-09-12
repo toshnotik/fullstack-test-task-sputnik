@@ -18,7 +18,9 @@ export function AlertsTable({ alerts, isLoading }: AlertsTableProps) {
           <h2 className="h5 mb-0">Алерты</h2>
           <div className="d-flex align-items-center gap-2">
             {isLoading && !isInitialLoading ? (
-              <span className="small text-secondary">Обновление...</span>
+              <span className="small text-secondary" role="status" aria-live="polite">
+                Обновление...
+              </span>
             ) : null}
             <Badge bg="secondary">{alerts.length}</Badge>
           </div>
@@ -27,7 +29,9 @@ export function AlertsTable({ alerts, isLoading }: AlertsTableProps) {
       <Card.Body className="px-4 pb-4">
         {isInitialLoading ? (
           <div className="d-flex justify-content-center py-5">
-            <Spinner animation="border" />
+            <Spinner animation="border" role="status">
+              <span className="visually-hidden">Загрузка алертов...</span>
+            </Spinner>
           </div>
         ) : alerts.length === 0 ? (
           <div className="text-center py-4 text-secondary">Алертов пока нет</div>
@@ -36,11 +40,11 @@ export function AlertsTable({ alerts, isLoading }: AlertsTableProps) {
             <Table hover bordered className="align-middle mb-0">
               <thead className="table-light">
                 <tr>
-                  <th>ID</th>
-                  <th>File ID</th>
-                  <th>Уровень</th>
-                  <th>Сообщение</th>
-                  <th>Создан</th>
+                  <th scope="col">ID</th>
+                  <th scope="col">File ID</th>
+                  <th scope="col">Уровень</th>
+                  <th scope="col">Сообщение</th>
+                  <th scope="col">Создан</th>
                 </tr>
               </thead>
               <tbody>

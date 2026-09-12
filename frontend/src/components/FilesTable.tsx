@@ -19,7 +19,9 @@ export function FilesTable({ files, isLoading, getDownloadUrl }: FilesTableProps
           <h2 className="h5 mb-0">Файлы</h2>
           <div className="d-flex align-items-center gap-2">
             {isLoading && !isInitialLoading ? (
-              <span className="small text-secondary">Обновление...</span>
+              <span className="small text-secondary" role="status" aria-live="polite">
+                Обновление...
+              </span>
             ) : null}
             <Badge bg="secondary">{files.length}</Badge>
           </div>
@@ -28,7 +30,9 @@ export function FilesTable({ files, isLoading, getDownloadUrl }: FilesTableProps
       <Card.Body className="px-4 pb-4">
         {isInitialLoading ? (
           <div className="d-flex justify-content-center py-5">
-            <Spinner animation="border" />
+            <Spinner animation="border" role="status">
+              <span className="visually-hidden">Загрузка файлов...</span>
+            </Spinner>
           </div>
         ) : files.length === 0 ? (
           <div className="text-center py-4 text-secondary">Файлы пока не загружены</div>
@@ -37,14 +41,14 @@ export function FilesTable({ files, isLoading, getDownloadUrl }: FilesTableProps
             <Table hover bordered className="align-middle mb-0">
               <thead className="table-light">
                 <tr>
-                  <th>Название</th>
-                  <th>Файл</th>
-                  <th>MIME</th>
-                  <th>Размер</th>
-                  <th>Статус</th>
-                  <th>Проверка</th>
-                  <th>Создан</th>
-                  <th></th>
+                  <th scope="col">Название</th>
+                  <th scope="col">Файл</th>
+                  <th scope="col">MIME</th>
+                  <th scope="col">Размер</th>
+                  <th scope="col">Статус</th>
+                  <th scope="col">Проверка</th>
+                  <th scope="col">Создан</th>
+                  <th scope="col"></th>
                 </tr>
               </thead>
               <tbody>

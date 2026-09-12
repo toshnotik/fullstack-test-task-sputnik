@@ -114,7 +114,7 @@ export default function Page() {
           </Card>
 
           {errorMessage ? (
-            <Alert variant="danger" className="shadow-sm">
+            <Alert variant="danger" className="shadow-sm" role="alert">
               {errorMessage}
             </Alert>
           ) : null}

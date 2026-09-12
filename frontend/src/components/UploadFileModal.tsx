@@ -30,24 +30,27 @@ export function UploadFileModal({
       onHide={isSubmitting ? undefined : onHide}
       centered
       backdrop={isSubmitting ? "static" : true}
+      aria-labelledby="upload-file-modal-title"
     >
       <Form onSubmit={onSubmit}>
         <Modal.Header closeButton={!isSubmitting}>
-          <Modal.Title>Добавить файл</Modal.Title>
+          <Modal.Title id="upload-file-modal-title">Добавить файл</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form.Group className="mb-3">
+          <Form.Group className="mb-3" controlId="upload-file-title">
             <Form.Label>Название</Form.Label>
             <Form.Control
+              type="text"
               value={title}
               onChange={(event) => onTitleChange(event.target.value)}
               placeholder="Например, Договор с подрядчиком"
               disabled={isSubmitting}
+              required
             />
           </Form.Group>
-          <Form.Group>
+          <Form.Group controlId="upload-file-input">
             <Form.Label>Файл</Form.Label>
-            <Form.Control type="file" onChange={handleFileChange} disabled={isSubmitting} />
+            <Form.Control type="file" onChange={handleFileChange} disabled={isSubmitting} required />
           </Form.Group>
         </Modal.Body>
         <Modal.Footer>
