@@ -7,7 +7,6 @@ from src.schemas import FileItem, FileUpdate
 from src.services.files import create_file, delete_file, get_file, get_file_path, list_files, update_file
 from src.tasks import scan_file_for_threats
 
-
 router = APIRouter()
 
 

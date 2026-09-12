@@ -1,11 +1,22 @@
 import asyncio
+from collections.abc import Awaitable
 from contextlib import suppress
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, Protocol
 
 from src.core import config
 
 UPLOAD_CHUNK_SIZE = 1024 * 1024
+
+
+class UploadReader(Protocol):
+    @property
+    def filename(self) -> str | None: ...
+
+    @property
+    def content_type(self) -> str | None: ...
+
+    def read(self, size: int = -1) -> Awaitable[bytes]: ...
 
 
 def get_stored_path(stored_name: str) -> Path:
@@ -14,7 +25,7 @@ def get_stored_path(stored_name: str) -> Path:
 
 async def save_upload_file(
     stored_name: str,
-    upload_file,
+    upload_file: UploadReader,
     chunk_size: int = UPLOAD_CHUNK_SIZE,
 ) -> int:
     stored_path = get_stored_path(stored_name)

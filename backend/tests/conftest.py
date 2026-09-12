@@ -8,7 +8,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import event
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 os.environ.setdefault("POSTGRES_USER", "test")
@@ -28,7 +28,7 @@ from src.models import Base
 async def test_context(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-) -> AsyncIterator[tuple[async_sessionmaker[Any], Path]]:
+) -> AsyncIterator[tuple[async_sessionmaker[AsyncSession], Path]]:
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -58,7 +58,7 @@ async def test_context(
 
 
 @pytest_asyncio.fixture
-async def client(test_context: tuple[async_sessionmaker[Any], Path]) -> AsyncIterator[AsyncClient]:
+async def client(test_context: tuple[async_sessionmaker[AsyncSession], Path]) -> AsyncIterator[AsyncClient]:
     transport = ASGITransport(app=app_module.app, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="http://test") as async_client:
         yield async_client

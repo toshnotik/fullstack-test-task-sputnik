@@ -14,3 +14,41 @@ dependencies = [
     "sqlalchemy>=2.0.48",
     "uvicorn>=0.42.0",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "aiosqlite>=0.22.0",
+    "httpx>=0.28.1",
+    "mypy>=1.19.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.14.9",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "UP",
+]
+ignore = [
+    "UP047",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.14"
+plugins = ["sqlalchemy.ext.mypy.plugin"]
+pretty = true
+show_error_codes = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+check_untyped_defs = true
+explicit_package_bases = true

@@ -1,4 +1,6 @@
 import asyncio
+from collections.abc import Awaitable
+from typing import TypeVar
 
 from celery import Celery
 
@@ -7,8 +9,10 @@ from src.services import processing
 
 celery_app = Celery("file_tasks", broker=config.REDIS_URL, backend=config.REDIS_URL)
 
+T = TypeVar("T")
 
-async def run_processing(coroutine):
+
+async def run_processing(coroutine: Awaitable[T]) -> T:
     try:
         return await coroutine
     finally:

@@ -1,9 +1,8 @@
 from pathlib import Path
-from typing import Any
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.models import Alert, StoredFile
 from src.services import processing
@@ -11,7 +10,7 @@ from src.storage import local as local_storage
 
 
 async def create_stored_file(
-    session_maker: async_sessionmaker[Any],
+    session_maker: async_sessionmaker[AsyncSession],
     *,
     file_id: str = "processing-file",
     original_name: str = "document.txt",
@@ -43,7 +42,7 @@ async def create_stored_file(
 
 @pytest.mark.asyncio
 async def test_scan_file_for_threats_marks_clean_file(
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
 ) -> None:
     session_maker, _ = test_context
     await create_stored_file(session_maker)
@@ -63,7 +62,7 @@ async def test_scan_file_for_threats_marks_clean_file(
 
 @pytest.mark.asyncio
 async def test_scan_file_for_threats_marks_suspicious_file(
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
 ) -> None:
     session_maker, _ = test_context
     await create_stored_file(
@@ -87,7 +86,7 @@ async def test_scan_file_for_threats_marks_suspicious_file(
 
 @pytest.mark.asyncio
 async def test_extract_file_metadata_records_text_metadata(
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
 ) -> None:
     session_maker, _ = test_context
     await create_stored_file(session_maker, size=11)
@@ -112,7 +111,7 @@ async def test_extract_file_metadata_records_text_metadata(
 
 @pytest.mark.asyncio
 async def test_extract_file_metadata_marks_missing_storage_as_failed(
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
 ) -> None:
     session_maker, _ = test_context
     await create_stored_file(session_maker, scan_status=None)
@@ -141,12 +140,19 @@ async def test_extract_file_metadata_marks_missing_storage_as_failed(
             "warning",
             "File requires attention: suspicious extension .exe",
         ),
-        ("failed", "failed", "stored file not found during metadata extraction", False, "critical", "File processing failed"),
+        (
+            "failed",
+            "failed",
+            "stored file not found during metadata extraction",
+            False,
+            "critical",
+            "File processing failed",
+        ),
     ],
 )
 @pytest.mark.asyncio
 async def test_create_file_alert_uses_current_file_state(
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
     processing_status: str,
     scan_status: str,
     scan_details: str,
@@ -176,7 +182,7 @@ async def test_create_file_alert_uses_current_file_state(
 
 @pytest.mark.asyncio
 async def test_processing_steps_ignore_missing_stored_file(
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
 ) -> None:
     session_maker, _ = test_context
 

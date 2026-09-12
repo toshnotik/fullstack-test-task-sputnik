@@ -1,11 +1,11 @@
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, BinaryIO
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from src.api import files as files_api
 from src.models import Alert, StoredFile
@@ -34,8 +34,8 @@ class ChunkedUpload:
         self.filename = filename
         self.content_type = content_type
 
-    async def read(self, size: int | None = None) -> bytes:
-        if size is None:
+    async def read(self, size: int = -1) -> bytes:
+        if size == -1:
             raise AssertionError("upload should be read with an explicit chunk size")
         if not self.chunks:
             return b""
@@ -70,7 +70,7 @@ async def upload_file(
 async def test_upload_file_persists_metadata_and_stored_file(
     client: AsyncClient,
     scan_spy: DelaySpy,
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
 ) -> None:
     _, storage_dir = test_context
 
@@ -103,14 +103,10 @@ async def test_upload_file_persists_metadata_and_stored_file(
 async def test_upload_large_file_persists_streamed_content_and_size(
     client: AsyncClient,
     scan_spy: DelaySpy,
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
 ) -> None:
     _, storage_dir = test_context
-    content = (
-        (b"a" * local_storage.UPLOAD_CHUNK_SIZE)
-        + (b"b" * 123)
-        + (b"c" * local_storage.UPLOAD_CHUNK_SIZE)
-    )
+    content = (b"a" * local_storage.UPLOAD_CHUNK_SIZE) + (b"b" * 123) + (b"c" * local_storage.UPLOAD_CHUNK_SIZE)
 
     body = await upload_file(
         client,
@@ -126,7 +122,7 @@ async def test_upload_large_file_persists_streamed_content_and_size(
 @pytest.mark.asyncio
 async def test_upload_uses_explicit_chunk_reads(
     scan_spy: DelaySpy,
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
 ) -> None:
     session_maker, storage_dir = test_context
     chunks = [b"first", b"second"]
@@ -148,11 +144,11 @@ async def test_upload_uses_explicit_chunk_reads(
 @pytest.mark.asyncio
 async def test_upload_cleans_saved_file_when_database_operation_fails(
     monkeypatch: pytest.MonkeyPatch,
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
 ) -> None:
     session_maker, storage_dir = test_context
 
-    def fail_add_file(*_: Any) -> None:
+    def fail_add_file(*_: object) -> None:
         raise RuntimeError("database failed")
 
     monkeypatch.setattr(files_repository, "add_file", fail_add_file)
@@ -173,13 +169,13 @@ async def test_upload_cleans_saved_file_when_database_operation_fails(
 @pytest.mark.asyncio
 async def test_upload_removes_partial_file_when_storage_write_fails(
     monkeypatch: pytest.MonkeyPatch,
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
 ) -> None:
     _, storage_dir = test_context
     original_write_chunk = local_storage._write_chunk
     write_calls = 0
 
-    def fail_second_write(target: Any, chunk: bytes) -> None:
+    def fail_second_write(target: BinaryIO, chunk: bytes) -> None:
         nonlocal write_calls
         write_calls += 1
         if write_calls == 2:
@@ -267,7 +263,7 @@ async def test_update_file_name_changes_title_only(
 async def test_delete_file_removes_database_row_and_stored_file(
     client: AsyncClient,
     scan_spy: DelaySpy,
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
 ) -> None:
     session_maker, storage_dir = test_context
     uploaded = await upload_file(client, filename="delete-me.txt", content=b"delete me")
@@ -287,7 +283,7 @@ async def test_delete_file_removes_database_row_and_stored_file(
 @pytest.mark.asyncio
 async def test_list_alerts_returns_alerts_newest_first(
     client: AsyncClient,
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
 ) -> None:
     session_maker, _ = test_context
     async with session_maker() as session:
@@ -351,7 +347,7 @@ async def test_missing_file_operations_return_404(client: AsyncClient) -> None:
 async def test_delete_file_referenced_by_alert_removes_database_rows_and_stored_file(
     client: AsyncClient,
     scan_spy: DelaySpy,
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
 ) -> None:
     session_maker, storage_dir = test_context
     uploaded = await upload_file(client, filename="referenced.txt", content=b"referenced")
@@ -378,7 +374,7 @@ async def test_delete_file_referenced_by_alert_removes_database_rows_and_stored_
 async def test_delete_file_succeeds_when_stored_file_is_already_missing(
     client: AsyncClient,
     scan_spy: DelaySpy,
-    test_context: tuple[async_sessionmaker[Any], Path],
+    test_context: tuple[async_sessionmaker[AsyncSession], Path],
 ) -> None:
     session_maker, storage_dir = test_context
     uploaded = await upload_file(client, filename="missing-on-disk.txt", content=b"missing")

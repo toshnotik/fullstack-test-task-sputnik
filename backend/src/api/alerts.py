@@ -3,7 +3,6 @@ from fastapi import APIRouter
 from src.schemas import AlertItem
 from src.services.alerts import list_alerts
 
-
 router = APIRouter()
 
 

@@ -1,7 +1,6 @@
 import mimetypes
 from contextlib import suppress
 from pathlib import Path
-from typing import Any
 from uuid import uuid4
 
 from src.core import database
@@ -10,6 +9,7 @@ from src.models import StoredFile
 from src.repositories import alerts as alerts_repository
 from src.repositories import files as files_repository
 from src.storage import local as local_storage
+from src.storage.local import UploadReader
 
 
 async def list_files() -> list[StoredFile]:
@@ -25,7 +25,7 @@ async def get_file(file_id: str) -> StoredFile:
         return file_item
 
 
-async def create_file(title: str, upload_file: Any) -> StoredFile:
+async def create_file(title: str, upload_file: UploadReader) -> StoredFile:
     file_id = str(uuid4())
     suffix = Path(upload_file.filename or "").suffix
     stored_name = f"{file_id}{suffix}"

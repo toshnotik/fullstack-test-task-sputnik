@@ -56,12 +56,12 @@ async def extract_file_metadata(file_id: str) -> bool:
         }
 
         if file_item.mime_type.startswith("text/"):
-            content = local_storage.read_text(file_item.stored_name)
-            metadata["line_count"] = len(content.splitlines())
-            metadata["char_count"] = len(content)
+            text_content = local_storage.read_text(file_item.stored_name)
+            metadata["line_count"] = len(text_content.splitlines())
+            metadata["char_count"] = len(text_content)
         elif file_item.mime_type == "application/pdf":
-            content = local_storage.read_bytes(file_item.stored_name)
-            metadata["approx_page_count"] = max(content.count(b"/Type /Page"), 1)
+            pdf_content = local_storage.read_bytes(file_item.stored_name)
+            metadata["approx_page_count"] = max(pdf_content.count(b"/Type /Page"), 1)
 
         file_item.metadata_json = metadata
         file_item.processing_status = "processed"
